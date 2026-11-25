@@ -1,0 +1,36 @@
+name: Wiki
+
+# Runs on every pull request, without a path filter: if this check is ever
+# required, a filtered workflow would never report on pull requests that
+# don't touch the wiki and would block them.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  wiki:
+    name: Lint the wiki
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The lint compares against the base branch to catch edited records
+          # and deleted pages, so it needs the history.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: wiki/tools/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: wiki/tools/pnpm-lock.yaml
+      - run: pnpm --dir wiki/tools install --frozen-lockfile
+      - run: pnpm --dir wiki/tools typecheck
+      - run: pnpm --dir wiki/tools test
+      - run: node wiki/tools/src/cli.ts lint --base "origin/$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}
